@@ -1,12 +1,15 @@
 # Node modules
 node_modules/
 
+apigee-resource/fromOrgResources
 # Logs
 *.log
 
 # Build output
 dist/
 build/
+
+
 
 # Dependency directories
 jspm_packages/

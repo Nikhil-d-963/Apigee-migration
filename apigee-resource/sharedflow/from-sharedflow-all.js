@@ -3,26 +3,13 @@ const path = require('path');
 const axios = require('axios');
 const inquirer = require('inquirer'); // Import inquirer
 
-let authToken = null; // Variable to store the auth token
+
 
 // Function to get the auth token from user
-const getAuthToken = async () => {
-  if (authToken) return authToken; // Return if token is already present
 
-  try {
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'authToken',
-        message: 'Please enter your Google Cloud auth token:',
-        validate: input => input ? true : 'Auth token cannot be empty',
-      }
-    ]);
-    authToken = answers.authToken; // Store the token for future use
-    return authToken;
-  } catch (error) {
-    console.error('Error while prompting for auth token:', error.message);
-    throw error;
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
 };
 
@@ -61,14 +48,22 @@ const fetchRevisions = async (sharedflowName, authToken, orgName) => {
 const downloadSharedflowBundle = async (sharedflowName, revision, authToken, orgName) => {
   const bundleUrl = `https://apigee.googleapis.com/v1/organizations/${orgName}/sharedflows/${sharedflowName}/revisions/${revision}?format=bundle`;
   try {
+    // Define the directory path where the sharedflow bundles will be saved
+    const sharedflowDir = path.join(__dirname, '..', 'fromOrgResources', 'sharedflows');
+    
+    // Ensure the directory exists before downloading
+    ensureDirectoryExists(sharedflowDir);
+
     const response = await axios.get(bundleUrl, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
-      responseType: 'stream',
+      responseType: 'stream', // Set response type to stream for downloading files
     });
 
-    const outputPath = path.join(__dirname, '..', 'sharedflows', `${sharedflowName}_rev${revision}.zip`);
+    const outputPath = path.join(sharedflowDir, `${sharedflowName}_rev${revision}.zip`);
+    
+    // Save the downloaded sharedflow bundle as a ZIP file
     response.data.pipe(fs.createWriteStream(outputPath));
     console.log(`Downloaded ${sharedflowName} revision ${revision} to ${outputPath}`);
   } catch (error) {
@@ -76,15 +71,10 @@ const downloadSharedflowBundle = async (sharedflowName, revision, authToken, org
     throw error;
   }
 };
-
 // Main function to handle 'all' migration for sharedflows
-const fromSharedflowAll = async (config) => {
+const fromSharedflowAll = async (config,authToken) => {
   try {
-    if (!fs.existsSync(path.join(__dirname, '..', 'sharedflows'))) {
-      fs.mkdirSync(path.join(__dirname, '..', 'sharedflows'));
-    }
 
-    const authToken = await getAuthToken();
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const sharedflows = await fetchSharedflows(authToken, orgName);
 

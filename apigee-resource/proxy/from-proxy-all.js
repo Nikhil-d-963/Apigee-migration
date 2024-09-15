@@ -4,22 +4,14 @@ const axios = require('axios');
 const inquirer = require('inquirer'); // Ensure inquirer is required properly
 
 // Function to get the auth token from user
-const getAuthToken = async () => {
-  try {
-    const answers = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'authToken',
-        message: 'Please enter your Google Cloud auth token:',
-        validate: input => input ? true : 'Auth token cannot be empty',
-      }
-    ]);
-    return answers.authToken;
-  } catch (error) {
-    console.error('Error while prompting for auth token:', error.message);
-    throw error;
+
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
 };
+
+
 
 // Function to fetch proxies
 const fetchProxies = async (authToken, orgName) => {
@@ -56,14 +48,22 @@ const fetchRevisions = async (proxyName, authToken, orgName) => {
 const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
   const bundleUrl = `https://apigee.googleapis.com/v1/organizations/${orgName}/apis/${proxyName}/revisions/${revision}?format=bundle`;
   try {
+    // Define the directory path where the proxy bundles will be saved
+    const proxyDir = path.join(__dirname, '..', 'fromOrgResources', 'proxies');
+    
+    // Ensure the directory exists before downloading
+    ensureDirectoryExists(proxyDir);
+
     const response = await axios.get(bundleUrl, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
-      responseType: 'stream',
+      responseType: 'stream', // Set response type to stream for downloading files
     });
 
-    const outputPath = path.join(__dirname, '..', 'proxies', `${proxyName}_rev${revision}.zip`);
+    const outputPath = path.join(proxyDir, `${proxyName}_rev${revision}.zip`);
+    
+    // Save the downloaded proxy bundle as a ZIP file
     response.data.pipe(fs.createWriteStream(outputPath));
     console.log(`Downloaded ${proxyName} revision ${revision} to ${outputPath}`);
   } catch (error) {
@@ -73,13 +73,9 @@ const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
 };
 
 // Main function to handle 'all' migration
-const fromProxyAll = async (config) => {
+const fromProxyAll = async (config,authToken) => {
   try {
-    if (!fs.existsSync(path.join(__dirname, '..', 'proxies'))) {
-      fs.mkdirSync(path.join(__dirname, '..', 'proxies'));
-    }
 
-    const authToken = await getAuthToken();
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const proxies = await fetchProxies(authToken, orgName);
 

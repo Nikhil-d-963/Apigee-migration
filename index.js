@@ -4,9 +4,31 @@ const fs = require('fs');
 const path = require('path');
 const { Command } = require('commander');
 const program = new Command();
+const inquirer = require('inquirer');
 const {loadConfigFromFile, performAllMigration, performSpecificMigration} = require('./config-handle/config-handle')
 const fromProxyAll = require('./apigee-resource/proxy/from-proxy-all')
 const fromSharedflowAll = require('./apigee-resource/sharedflow/from-sharedflow-all')
+const fromTargetServerAll = require('./apigee-resource/target-server/from-targetserver-all')
+
+
+
+
+const getAuthToken = async () => {
+    try {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'authToken',
+          message: 'Please enter From Org Google Cloud auth token:',
+          validate: input => input ? true : 'Auth token cannot be empty',
+        }
+      ]);
+      return answers.authToken;
+    } catch (error) {
+      console.error('Error while prompting for auth token:', error.message);
+      throw error;
+    }
+  };
 
 // Main CLI program
 program
@@ -23,8 +45,10 @@ program
     const config = await loadConfigFromFile(configPath);
     console.log('Loaded configuration:', config);
     performAllMigration(config);
-    await fromProxyAll(config)
-    await fromSharedflowAll(config);
+    const authToken = await getAuthToken();
+    await fromProxyAll(config,authToken)
+    await fromSharedflowAll(config, authToken);
+    await fromTargetServerAll(config,authToken)
   });
 
 // Command for migrating specific resources
