@@ -39,7 +39,7 @@ const FromGetAuthToken = async () => {
         {
           type: 'input',
           name: 'authToken',
-          message: 'Please enter From Org Google Cloud auth token:',
+          message: 'Please enter Destination Org Google Cloud auth token:',
           validate: input => input ? true : 'Auth token cannot be empty',
         }
       ]);
