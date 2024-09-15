@@ -61,7 +61,7 @@ const downloadSharedflowBundle = async (sharedflowName, revision, authToken, org
       responseType: 'stream', // Set response type to stream for downloading files
     });
 
-    const outputPath = path.join(sharedflowDir, `${sharedflowName}_rev${revision}.zip`);
+    const outputPath = path.join(sharedflowDir, `${sharedflowName}.zip`);
     
     // Save the downloaded sharedflow bundle as a ZIP file
     response.data.pipe(fs.createWriteStream(outputPath));

@@ -61,7 +61,7 @@ const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
       responseType: 'stream', // Set response type to stream for downloading files
     });
 
-    const outputPath = path.join(proxyDir, `${proxyName}_rev${revision}.zip`);
+    const outputPath = path.join(proxyDir, `${proxyName}.zip`);
     
     // Save the downloaded proxy bundle as a ZIP file
     response.data.pipe(fs.createWriteStream(outputPath));
