@@ -9,11 +9,31 @@ const {loadConfigFromFile, performAllMigration, performSpecificMigration} = requ
 const fromProxyAll = require('./apigee-resource/proxy/from-proxy-all')
 const fromSharedflowAll = require('./apigee-resource/sharedflow/from-sharedflow-all')
 const fromTargetServerAll = require('./apigee-resource/target-server/from-targetserver-all')
+const deployProxyAll = require('./apigee-resource/proxy/deploy-proxy-all')
 
 
+let authToken;
 
 
-const getAuthToken = async () => {
+const FromGetAuthToken = async () => {
+    try {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'authToken',
+          message: 'Please enter From Org Google Cloud auth token:',
+          validate: input => input ? true : 'Auth token cannot be empty',
+        }
+      ]);
+      return answers.authToken;
+    } catch (error) {
+      console.error('Error while prompting for auth token:', error.message);
+      throw error;
+    }
+  };
+
+
+  const ToGetAuthToken = async () => {
     try {
       const answers = await inquirer.prompt([
         {
@@ -45,10 +65,14 @@ program
     const config = await loadConfigFromFile(configPath);
     console.log('Loaded configuration:', config);
     performAllMigration(config);
-    const authToken = await getAuthToken();
-    await fromProxyAll(config,authToken)
-    await fromSharedflowAll(config, authToken);
-    await fromTargetServerAll(config,authToken)
+    // authToken = await FromGetAuthToken();
+    // await fromProxyAll(config,authToken)
+    // await fromSharedflowAll(config, authToken);
+    
+
+    authToken = await ToGetAuthToken();
+    await deployProxyAll(config,authToken)
+    
   });
 
 // Command for migrating specific resources
