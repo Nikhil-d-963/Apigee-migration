@@ -1,0 +1,21 @@
+{
+  "name": "apigee-migrate-cli",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "apigee-migration": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@inquirer/prompts": "^1.0.0",
+    "axios": "^1.7.7",
+    "commander": "^12.1.0",
+    "inquirer": "^6.5.2"
+  }
+}

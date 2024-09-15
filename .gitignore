@@ -1,0 +1,67 @@
+# Node modules
+node_modules/
+
+# Logs
+*.log
+
+# Build output
+dist/
+build/
+
+# Dependency directories
+jspm_packages/
+bower_components/
+
+# Configuration files
+config.json
+
+# Environment files
+.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Mac system files
+*.DS_Store
+
+# Windows system files
+*.log
+*.tmp
+*.swp
+
+# npm package-lock
+package-lock.json
+
+# Temporary files
+*.tmp
+
+# Generated files
+*.zip
+*.tar.gz
+
+# Debug files
+*.debug
+
+# Coverage reports
+coverage/
+
+# Yarn
+.yarn/
+
+# JetBrains IDEs
+*.iml
+
+# Test coverage
+coverage/
+*.lcov
+
+# Local environment variables
+*.env
+
+# TypeScript
+*.tsbuildinfo
