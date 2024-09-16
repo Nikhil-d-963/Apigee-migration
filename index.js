@@ -10,6 +10,9 @@ const fromProxyAll = require('./apigee-resource/proxy/from-proxy-all')
 const fromSharedflowAll = require('./apigee-resource/sharedflow/from-sharedflow-all')
 const fromTargetServerAll = require('./apigee-resource/target-server/from-targetserver-all')
 const deployProxyAll = require('./apigee-resource/proxy/deploy-proxy-all')
+const deploySharedflowAll = require('./apigee-resource/sharedflow/deploy-sharedflow-all');
+const createTargetServerAll = require('./apigee-resource/target-server/create-targetserver-all');
+
 
 
 let authToken;
@@ -59,22 +62,31 @@ program
 program
   .command('all')
   .description('Migrate all resources based on the "All" section of the config file')
-  .option('--config <path>', 'Path to the confifg file', 'config.json')
+  .option('--config <path>', 'Path to the config file', 'config.json')
+  .option('--onlyimport', 'Only import proxy bundles without deploying')
+  .option('--default', 'Import and deploy proxy bundles')
   .action(async (cmd) => {
     const configPath = path.resolve(cmd.config);
     const config = await loadConfigFromFile(configPath);
     console.log('Loaded configuration:', config);
+
     performAllMigration(config);
+
+    // Get From Org auth token and handle import process
     // authToken = await FromGetAuthToken();
-    // await fromProxyAll(config,authToken)
     // await fromSharedflowAll(config, authToken);
-    
+    // await fromTargetServerAll(config, authToken);
+    // await fromProxyAll(config, authToken);
 
+    // Get Destination Org auth token for deployment
     authToken = await ToGetAuthToken();
-    await deployProxyAll(config,authToken)
-    
-  });
 
+    // Determine if the command is to only import or to both import and deploy
+    const onlyImport = !!cmd.onlyimport;
+    // await createTargetServerAll(config, authToken);
+    await deploySharedflowAll(config, authToken, onlyImport);
+    await deployProxyAll(config, authToken, onlyImport);
+  });
 // Command for migrating specific resources
 program
   .command('specific')
