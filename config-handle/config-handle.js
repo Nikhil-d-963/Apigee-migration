@@ -5,7 +5,7 @@ const fs = require('fs');
 const validateConfig = (config) => {
     // Define required keys and their structure
     const requiredKeys = ['Apigee-resource', 'Organization'];
-    const allKeys = ['Proxy', 'Shareflow', 'TargetServers'];
+    const allKeys = ['Proxy', 'Sharedflow', 'TargetServers'];
     const specificKeys = ['proxy', 'sharedflow', 'targetServer'];
     const OrganizationKeys = ['From', 'To'];
   
@@ -64,7 +64,7 @@ const validateConfig = (config) => {
       // Add logic to migrate proxies here
     }
   
-    if (resources.Shareflow) {
+    if (resources.Sharedflow) {
       console.log('Migrating sharedflows...');
       // Add logic to migrate sharedflows here
     }
