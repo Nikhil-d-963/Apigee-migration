@@ -2,11 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const inquirer = require('inquirer'); // Import inquirer
-
-
-
-// Function to get the auth token from user
-
+const ProgressBar = require('progress'); // Progress bar library
+let chalk;
+(async () => {
+  chalk = (await import('chalk')).default;
+})();
+// Function to ensure directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -24,7 +25,7 @@ const fetchSharedflows = async (authToken, orgName) => {
     const sharedflows = response.data.sharedFlows.map(sharedflow => sharedflow.name);
     return sharedflows;
   } catch (error) {
-    console.error('Error fetching sharedflows:', error.message);
+    console.error(chalk.red('Error fetching sharedflows:'), error.message);
     throw error;
   }
 };
@@ -39,7 +40,7 @@ const fetchRevisions = async (sharedflowName, authToken, orgName) => {
     });
     return response.data;
   } catch (error) {
-    console.error(`Error fetching revisions for sharedflow ${sharedflowName}:`, error.message);
+    console.error(chalk.red(`Error fetching revisions for sharedflow ${sharedflowName}:`), error.message);
     throw error;
   }
 };
@@ -63,18 +64,42 @@ const downloadSharedflowBundle = async (sharedflowName, revision, authToken, org
 
     const outputPath = path.join(sharedflowDir, `${sharedflowName}.zip`);
     
-    // Save the downloaded sharedflow bundle as a ZIP file
+    // Get the total content length to use in progress bar
+    const totalLength = response.headers['content-length'];
+
+    // Create a progress bar
+    const progressBar = new ProgressBar(`Downloading ${sharedflowName} [:bar] :percent :etas`, {
+      width: 40,
+      complete: '=',
+      incomplete: ' ',
+      renderThrottle: 100,
+      total: parseInt(totalLength)
+    });
+
+    // Stream the download and update progress bar
+    response.data.on('data', (chunk) => progressBar.tick(chunk.length));
     response.data.pipe(fs.createWriteStream(outputPath));
-    console.log(`Downloaded ${sharedflowName} revision ${revision} to ${outputPath}`);
+
+    return new Promise((resolve, reject) => {
+      response.data.on('end', () => {
+        console.log(chalk.green(`Downloaded ${sharedflowName} revision ${revision} to ${outputPath}`));
+        resolve();
+      });
+
+      response.data.on('error', (error) => {
+        console.error(chalk.red(`Error downloading bundle for sharedflow ${sharedflowName} revision ${revision}:`), error.message);
+        reject(error);
+      });
+    });
   } catch (error) {
-    console.error(`Error downloading bundle for sharedflow ${sharedflowName} revision ${revision}:`, error.message);
+    console.error(chalk.red(`Error downloading bundle for sharedflow ${sharedflowName} revision ${revision}:`), error.message);
     throw error;
   }
 };
-// Main function to handle 'all' migration for sharedflows
-const fromSharedflowAll = async (config,authToken) => {
-  try {
 
+// Main function to handle 'all' migration for sharedflows
+const fromSharedflowAll = async (config, authToken) => {
+  try {
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const sharedflows = await fetchSharedflows(authToken, orgName);
 
@@ -84,7 +109,7 @@ const fromSharedflowAll = async (config,authToken) => {
       await downloadSharedflowBundle(sharedflow, latestRevision, authToken, orgName);
     }
   } catch (error) {
-    console.error('Migration failed:', error.message);
+    console.error(chalk.red('Migration failed:'), error.message);
     process.exit(1);
   }
 };

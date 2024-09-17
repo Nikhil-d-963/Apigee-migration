@@ -62,7 +62,7 @@ program
       await fromProxyAll(config, fromAuthToken);
     }
     
-    if (resources.Shareflow === true) {
+    if (resources.Sharedflow === true) {
       console.log('Migrating Sharedflows...');
       await fromSharedflowAll(config, fromAuthToken);
     }

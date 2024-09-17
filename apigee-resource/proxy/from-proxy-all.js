@@ -1,17 +1,21 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const inquirer = require('inquirer'); // Ensure inquirer is required properly
+const inquirer = require('inquirer');
+const ProgressBar = require('progress');
 
-// Function to get the auth token from user
+// Dynamically import `chalk` (since it's an ES module)
+let chalk;
+(async () => {
+  chalk = (await import('chalk')).default;
+})();
 
+// Function to ensure the directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 };
-
-
 
 // Function to fetch proxies
 const fetchProxies = async (authToken, orgName) => {
@@ -24,7 +28,7 @@ const fetchProxies = async (authToken, orgName) => {
     const proxies = response.data.proxies.map(proxy => proxy.name);
     return proxies;
   } catch (error) {
-    console.error('Error fetching proxies:', error.message);
+    console.error(chalk.red('Error fetching proxies:', error.message)); // Log error in red
     throw error;
   }
 };
@@ -39,7 +43,7 @@ const fetchRevisions = async (proxyName, authToken, orgName) => {
     });
     return response.data;
   } catch (error) {
-    console.error(`Error fetching revisions for proxy ${proxyName}:`, error.message);
+    console.error(chalk.red(`Error fetching revisions for proxy ${proxyName}:`, error.message)); // Log error in red
     throw error;
   }
 };
@@ -48,34 +52,52 @@ const fetchRevisions = async (proxyName, authToken, orgName) => {
 const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
   const bundleUrl = `https://apigee.googleapis.com/v1/organizations/${orgName}/apis/${proxyName}/revisions/${revision}?format=bundle`;
   try {
-    // Define the directory path where the proxy bundles will be saved
     const proxyDir = path.join(__dirname, '..', 'fromOrgResources', 'proxies');
-    
-    // Ensure the directory exists before downloading
     ensureDirectoryExists(proxyDir);
 
     const response = await axios.get(bundleUrl, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
-      responseType: 'stream', // Set response type to stream for downloading files
+      responseType: 'stream',
     });
 
     const outputPath = path.join(proxyDir, `${proxyName}.zip`);
-    
-    // Save the downloaded proxy bundle as a ZIP file
+
+    const totalSize = parseInt(response.headers['content-length'], 10); // Get total size for progress
+    const progressBar = new ProgressBar('  downloading [:bar] :percent :etas', {
+      width: 40,
+      total: totalSize,
+      complete: '=',
+      incomplete: ' ',
+    });
+
+    // Pipe data to file and update progress bar
+    response.data.on('data', (chunk) => {
+      progressBar.tick(chunk.length); // Update the progress bar with chunk size
+    });
+
     response.data.pipe(fs.createWriteStream(outputPath));
-    console.log(`Downloaded ${proxyName} revision ${revision} to ${outputPath}`);
+
+    return new Promise((resolve, reject) => {
+      response.data.on('end', () => {
+        console.log(chalk.green(`Downloaded ${proxyName} revision ${revision} to ${outputPath}`)); // Success in green
+        resolve();
+      });
+      response.data.on('error', (error) => {
+        console.error(chalk.red(`Error downloading bundle for proxy ${proxyName} revision ${revision}:`, error.message)); // Log error in red
+        reject(error);
+      });
+    });
   } catch (error) {
-    console.error(`Error downloading bundle for proxy ${proxyName} revision ${revision}:`, error.message);
+    console.error(chalk.red(`Error downloading bundle for proxy ${proxyName} revision ${revision}:`, error.message)); // Log error in red
     throw error;
   }
 };
 
 // Main function to handle 'all' migration
-const fromProxyAll = async (config,authToken) => {
+const fromProxyAll = async (config, authToken) => {
   try {
-
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const proxies = await fetchProxies(authToken, orgName);
 
@@ -85,7 +107,7 @@ const fromProxyAll = async (config,authToken) => {
       await downloadProxyBundle(proxy, latestRevision, authToken, orgName);
     }
   } catch (error) {
-    console.error('Migration failed:', error.message);
+    console.error(chalk.red('Migration failed:', error.message)); // Log failure in red
     process.exit(1);
   }
 };

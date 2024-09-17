@@ -1,11 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-
+const cliProgress = require('cli-progress'); // Import cli-progress
+let chalk;
+(async () => {
+  chalk = (await import('chalk')).default;
+})();
 // Function to create a target server
 const createTargetServer = async (targetServerDetails, authToken, orgName, envName) => {
   const url = `https://apigee.googleapis.com/v1/organizations/${orgName}/environments/${envName}/targetservers`;
-  
+
   try {
     const response = await axios.post(url, targetServerDetails, {
       headers: {
@@ -14,13 +18,13 @@ const createTargetServer = async (targetServerDetails, authToken, orgName, envNa
       }
     });
 
-    console.log(`Target server '${targetServerDetails.name}' created successfully.`);
+    console.log(chalk.green(`Target server '${targetServerDetails.name}' created successfully.`));
     return response.data;
   } catch (error) {
     if (error.response) {
-      console.error(`Error creating target server '${targetServerDetails.name}':`, error.response.data);
+      console.error(chalk.red(`Error creating target server '${targetServerDetails.name}':`), error.response.data);
     } else {
-      console.error(`Error creating target server '${targetServerDetails.name}':`, error.message);
+      console.error(chalk.red(`Error creating target server '${targetServerDetails.name}':`), error.message);
     }
     throw error;
   }
@@ -35,7 +39,7 @@ const loadTargetServerDetails = (targetServerName) => {
     const fileData = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(fileData); // Return target server details as JSON
   } else {
-    console.error(`Target server details for '${targetServerName}' not found.`);
+    console.error(chalk.red(`Target server details for '${targetServerName}' not found.`));
     return null;
   }
 };
@@ -49,10 +53,21 @@ const createTargetServerAll = async (config, authToken) => {
     const targetServerDir = path.join(__dirname, '..', 'fromOrgResources', 'TargetServer');
     const files = fs.readdirSync(targetServerDir);
 
+    // Initialize progress bar
+    const totalFiles = files.filter(file => file.endsWith('.json')).length;
+    const progressBar = new cliProgress.SingleBar({
+      format: 'Creating [{bar}] {percentage}% | {value}/{total} Target Servers',
+      barCompleteChar: '=',
+      barIncompleteChar: ' ',
+      hideCursor: true
+    }, cliProgress.Presets.shades_classic);
+
+    progressBar.start(totalFiles, 0);
+
     for (const file of files) {
       if (file.endsWith('.json')) {
         const targetServerName = path.basename(file, '.json');
-        
+
         try {
           // Load target server details from the local file
           const targetServerDetails = loadTargetServerDetails(targetServerName);
@@ -62,15 +77,19 @@ const createTargetServerAll = async (config, authToken) => {
             await createTargetServer(targetServerDetails, authToken, orgName, envName);
           }
         } catch (error) {
-          console.error(`Skipping target server '${targetServerName}' due to error: ${error.message}`);
+          console.error(chalk.red(`Skipping target server '${targetServerName}' due to error: ${error.message}`));
           continue; // Skip to the next target server if any error occurs
         }
+
+        // Update progress bar
+        progressBar.increment();
       }
     }
-    
-    console.log('Target server creation process completed.');
+
+    progressBar.stop();
+    console.log(chalk.green('Target server creation process completed.'));
   } catch (error) {
-    console.error('Target server creation failed:', error.message);
+    console.error(chalk.red('Target server creation failed:'), error.message);
     process.exit(1); // Exit the process with an error code
   }
 };

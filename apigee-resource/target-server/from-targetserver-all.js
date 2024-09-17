@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-
+const cliProgress = require('cli-progress'); // Import cli-progress
+let chalk;
+(async () => {
+  chalk = (await import('chalk')).default;
+})();
 // Function to ensure directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
@@ -19,7 +23,7 @@ const fetchTargetServers = async (authToken, orgName, envName) => {
     });
     return response.data; // Assuming the response is an array of target server names
   } catch (error) {
-    console.error('Error fetching target servers:', error.message);
+    console.error(chalk.red('Error fetching target servers:'), error.message);
     throw error;
   }
 };
@@ -41,9 +45,9 @@ const downloadTargetServerDetails = async (targetServerName, authToken, orgName,
 
     const outputPath = path.join(targetServerDir, `${targetServerName}.json`);
     fs.writeFileSync(outputPath, JSON.stringify(response.data, null, 2)); // Write the response data to a JSON file
-    console.log(`Downloaded details for target server ${targetServerName} to ${outputPath}`);
+    console.log(chalk.green(`Downloaded details for target server ${targetServerName} to ${outputPath}`));
   } catch (error) {
-    console.error(`Error downloading details for target server ${targetServerName}:`, error.message);
+    console.error(chalk.red(`Error downloading details for target server ${targetServerName}:`), error.message);
     throw error;
   }
 };
@@ -51,19 +55,36 @@ const downloadTargetServerDetails = async (targetServerName, authToken, orgName,
 // Main function to handle 'all' target server migration
 const fromTargetServerAll = async (config, authToken) => {
   try {
-
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const envName = config.Organization.From['environment']; // Get environment name from config
 
     const targetServers = await fetchTargetServers(authToken, orgName, envName);
 
+    // Initialize progress bar
+    const totalServers = targetServers.length;
+    const progressBar = new cliProgress.SingleBar({
+      format: 'Downloading [{bar}] {percentage}% | {value}/{total} Target Servers',
+      barCompleteChar: '=',
+      barIncompleteChar: ' ',
+      hideCursor: true
+    }, cliProgress.Presets.shades_classic);
+
+    progressBar.start(totalServers, 0);
+
     for (const targetServer of targetServers) {
-      await downloadTargetServerDetails(targetServer, authToken, orgName, envName);
+      try {
+        await downloadTargetServerDetails(targetServer, authToken, orgName, envName);
+        progressBar.increment(); // Update progress bar
+      } catch (error) {
+        console.error(chalk.red(`Skipping target server ${targetServer} due to error: ${error.message}`));
+        continue;
+      }
     }
 
-    console.log('All target servers have been downloaded successfully.');
+    progressBar.stop();
+    console.log(chalk.green('All target servers have been downloaded successfully.'));
   } catch (error) {
-    console.error('Target server migration failed:', error.message);
+    console.error(chalk.red('Target server migration failed:'), error.message);
     process.exit(1); // Exit the process with an error code
   }
 };
