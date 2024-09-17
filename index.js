@@ -16,6 +16,22 @@ const createTargetServerAll = require('./apigee-resource/target-server/create-ta
 let fromAuthToken;
 let toAuthToken;
 
+
+const deleteDirectory = (dirPath) => {
+  if (fs.existsSync(dirPath)) {
+    fs.readdirSync(dirPath).forEach((file) => {
+      const filePath = path.join(dirPath, file);
+      if (fs.statSync(filePath).isDirectory()) {
+        deleteDirectory(filePath); // Recursively delete subdirectories
+      } else {
+        fs.unlinkSync(filePath); // Delete files
+      }
+    });
+    fs.rmdirSync(dirPath); // Delete the directory itself
+  }
+};
+
+
 const getAuthToken = async (message) => {
   try {
     const answers = await inquirer.prompt([
@@ -99,6 +115,9 @@ program
     }
 
     console.log('Migration process completed.');
+    const fromOrgResourcesDir = path.join(__dirname, 'apigee-resource', 'fromOrgResources');
+    deleteDirectory(fromOrgResourcesDir);
+
   });
 
 // Command for migrating specific resources
