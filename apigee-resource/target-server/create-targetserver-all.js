@@ -6,6 +6,7 @@ let chalk;
 (async () => {
   chalk = (await import('chalk')).default;
 })();
+
 // Function to create a target server
 const createTargetServer = async (targetServerDetails, authToken, orgName, envName) => {
   const url = `https://apigee.googleapis.com/v1/organizations/${orgName}/environments/${envName}/targetservers`;
@@ -46,6 +47,7 @@ const loadTargetServerDetails = (targetServerName) => {
 
 // Main function to handle target server creation for all
 const createTargetServerAll = async (config, authToken) => {
+  let progressBar;
   try {
     const orgName = config.Organization.To['org-name']; // Get destination organization name from config
     const envName = config.Organization.To['environment']; // Get destination environment from config
@@ -55,7 +57,7 @@ const createTargetServerAll = async (config, authToken) => {
 
     // Initialize progress bar
     const totalFiles = files.filter(file => file.endsWith('.json')).length;
-    const progressBar = new cliProgress.SingleBar({
+    progressBar = new cliProgress.SingleBar({
       format: 'Creating [{bar}] {percentage}% | {value}/{total} Target Servers',
       barCompleteChar: '=',
       barIncompleteChar: ' ',
@@ -77,6 +79,8 @@ const createTargetServerAll = async (config, authToken) => {
             await createTargetServer(targetServerDetails, authToken, orgName, envName);
           }
         } catch (error) {
+          // Stop the progress bar before printing the error
+          if (progressBar) progressBar.stop();
           console.error(chalk.red(`Skipping target server '${targetServerName}' due to error: ${error.message}`));
           continue; // Skip to the next target server if any error occurs
         }
@@ -86,9 +90,12 @@ const createTargetServerAll = async (config, authToken) => {
       }
     }
 
-    progressBar.stop();
+    // Ensure progress bar stops
+    if (progressBar) progressBar.stop();
     console.log(chalk.green('Target server creation process completed.'));
   } catch (error) {
+    // Ensure progress bar stops on any top-level error
+    if (progressBar) progressBar.stop();
     console.error(chalk.red('Target server creation failed:'), error.message);
     process.exit(1); // Exit the process with an error code
   }

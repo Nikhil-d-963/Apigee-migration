@@ -6,6 +6,7 @@ let chalk;
 (async () => {
   chalk = (await import('chalk')).default;
 })();
+
 // Function to ensure directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
@@ -47,13 +48,13 @@ const downloadTargetServerDetails = async (targetServerName, authToken, orgName,
     fs.writeFileSync(outputPath, JSON.stringify(response.data, null, 2)); // Write the response data to a JSON file
     console.log(chalk.green(`Downloaded details for target server ${targetServerName} to ${outputPath}`));
   } catch (error) {
-    console.error(chalk.red(`Error downloading details for target server ${targetServerName}:`), error.message);
-    throw error;
+    throw new Error(`Error downloading details for target server ${targetServerName}: ${error.message}`);
   }
 };
 
 // Main function to handle 'all' target server migration
 const fromTargetServerAll = async (config, authToken) => {
+  let progressBar;
   try {
     const orgName = config.Organization.From['org-name']; // Get organization name from config
     const envName = config.Organization.From['environment']; // Get environment name from config
@@ -62,8 +63,8 @@ const fromTargetServerAll = async (config, authToken) => {
 
     // Initialize progress bar
     const totalServers = targetServers.length;
-    const progressBar = new cliProgress.SingleBar({
-      format: 'Downloading [{bar}] {percentage}% | {value}/{total} Target Servers',
+    progressBar = new cliProgress.SingleBar({
+      format: `Downloading [{bar}] {percentage}% | {value}/{total} Target Servers`,
       barCompleteChar: '=',
       barIncompleteChar: ' ',
       hideCursor: true
@@ -76,14 +77,34 @@ const fromTargetServerAll = async (config, authToken) => {
         await downloadTargetServerDetails(targetServer, authToken, orgName, envName);
         progressBar.increment(); // Update progress bar
       } catch (error) {
+        // Stop the progress bar before printing the error
+        if (progressBar) {
+          progressBar.stop();
+          // Clear line and move cursor up to avoid overlap
+          process.stdout.clearLine();
+          process.stdout.cursorTo(0);
+        }
         console.error(chalk.red(`Skipping target server ${targetServer} due to error: ${error.message}`));
         continue;
       }
     }
 
-    progressBar.stop();
+    // Ensure progress bar stops
+    if (progressBar) {
+      progressBar.stop();
+      // Clear line and move cursor up to avoid overlap
+      process.stdout.clearLine();
+      process.stdout.cursorTo(0);
+    }
     console.log(chalk.green('All target servers have been downloaded successfully.'));
   } catch (error) {
+    // Ensure progress bar stops on any top-level error
+    if (progressBar) {
+      progressBar.stop();
+      // Clear line and move cursor up to avoid overlap
+      process.stdout.clearLine();
+      process.stdout.cursorTo(0);
+    }
     console.error(chalk.red('Target server migration failed:'), error.message);
     process.exit(1); // Exit the process with an error code
   }

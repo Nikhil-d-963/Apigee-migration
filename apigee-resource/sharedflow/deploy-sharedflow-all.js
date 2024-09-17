@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
-const cliProgress = require('cli-progress'); // Progress bar library
 let chalk;
 (async () => {
   chalk = (await import('chalk')).default;
 })();
+
 // Function to ensure directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
@@ -90,48 +90,35 @@ const deployAllSharedflows = async (config, authToken, onlyImport = false) => {
     const sharedflowDir = path.join(__dirname, '..', 'fromOrgResources', 'sharedflows');
     const files = fs.readdirSync(sharedflowDir);
 
-    // Initialize progress bar
-    const totalFiles = files.filter(file => file.endsWith('.zip')).length;
-    const progressBar = new cliProgress.SingleBar({
-      format: 'Processing |{bar}| {percentage}% || Remaining: {eta}s || Files: {value}/{total}'
-    }, cliProgress.Presets.shades_classic);
+    // Filter out only .zip files for sharedflows
+    const sharedflowFiles = files.filter(file => file.endsWith('.zip'));
 
-    progressBar.start(totalFiles, 0);
+    for (const file of sharedflowFiles) {
+      const sharedflowName = path.basename(file, '.zip');
 
-    for (const file of files) {
-      if (file.endsWith('.zip')) {
-        const sharedflowName = path.basename(file, '.zip');
+      try {
+        // Upload the sharedflow bundle
+        console.log(chalk.blue(`Uploading ${sharedflowName}...`));
+        await uploadSharedflowBundle(path.join(sharedflowDir, file), sharedflowName, authToken, orgName);
 
-        try {
-          // Upload the sharedflow bundle
-          console.log(chalk.blue(`Uploading ${sharedflowName}...`));
-          await uploadSharedflowBundle(path.join(sharedflowDir, file), sharedflowName, authToken, orgName);
-          
-          if (!onlyImport) {
-            // Fetch the latest revision after upload
-            console.log(chalk.blue(`Fetching revisions for ${sharedflowName}...`));
-            const revisions = await fetchSharedflowRevisions(sharedflowName, authToken, orgName);
-            const latestRevision = Math.max(...revisions.map(Number));
+        if (!onlyImport) {
+          // Fetch the latest revision after upload
+          console.log(chalk.blue(`Fetching revisions for ${sharedflowName}...`));
+          const revisions = await fetchSharedflowRevisions(sharedflowName, authToken, orgName);
+          const latestRevision = Math.max(...revisions.map(Number));
 
-            // Deploy the sharedflow bundle
-            console.log(chalk.blue(`Deploying ${sharedflowName} revision ${latestRevision}...`));
-            await deploySharedflow(sharedflowName, latestRevision, authToken, orgName, environment);
-          } else {
-            console.log(chalk.yellow(`Skipping deployment for sharedflow ${sharedflowName} as --onlyimport flag is set.`));
-          }
-          
-          // Update progress bar
-          progressBar.increment();
-        } catch (error) {
-          // Skip this sharedflow on error and continue with the next one
-          console.error(chalk.red(`Skipping sharedflow ${sharedflowName} due to error: ${error.message}`));
-          continue;
+          // Deploy the sharedflow bundle
+          console.log(chalk.blue(`Deploying ${sharedflowName} revision ${latestRevision}...`));
+          await deploySharedflow(sharedflowName, latestRevision, authToken, orgName, environment);
+        } else {
+          console.log(chalk.yellow(`Skipping deployment for sharedflow ${sharedflowName} as --onlyimport flag is set.`));
         }
+      } catch (error) {
+        console.error(chalk.red(`Skipping sharedflow ${sharedflowName} due to error: ${error.message}`));
       }
     }
 
-    // Stop the progress bar
-    progressBar.stop();
+    console.log(chalk.green('All sharedflows have been processed.'));
   } catch (error) {
     console.error(chalk.red('Deployment process failed:'), error.message);
     process.exit(1);

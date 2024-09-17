@@ -55,6 +55,18 @@ program
 
     // Execute migrations based on config's "All" section
     const resources = config['Apigee-resource']?.All || {};
+
+
+    if (resources.TargetServers === true) {
+      console.log('Migrating Target Servers...');
+      await fromTargetServerAll(config, fromAuthToken);
+    }
+
+    if (resources.Sharedflow === true) {
+      console.log('Migrating Sharedflows...');
+      await fromSharedflowAll(config, fromAuthToken);
+    }
+
     
     // Only execute the function if the value in config is explicitly true
     if (resources.Proxy === true) {
@@ -62,15 +74,8 @@ program
       await fromProxyAll(config, fromAuthToken);
     }
     
-    if (resources.Sharedflow === true) {
-      console.log('Migrating Sharedflows...');
-      await fromSharedflowAll(config, fromAuthToken);
-    }
 
-    if (resources.TargetServers === true) {
-      console.log('Migrating Target Servers...');
-      await fromTargetServerAll(config, fromAuthToken);
-    }
+
 
     // Get Destination Org auth token for deployment
     toAuthToken = await getAuthToken('Please enter Destination Org Google Cloud auth token:');
