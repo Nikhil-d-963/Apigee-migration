@@ -1,23 +1,17 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18
+# Use a lightweight Node.js image
+FROM node:20-alpine
 
-# Set the working directory in the container
-WORKDIR /usr/src/app
+# Set the working directory inside the container
+WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package.json and package-lock.json to install dependencies first (leveraging Docker cache)
 COPY package*.json ./
 
-# Install any needed packages specified in package.json
+# Install dependencies
 RUN npm install
 
-# Copy the rest of your application code
+# Copy the rest of the app's code to the working directory
 COPY . .
 
-# Make the CLI tool executable
-RUN npm link
-
-# Define the entry point for the container
-ENTRYPOINT ["apigee-migration"]
-
-# Define default arguments (if needed, otherwise this can be omitted)
-# CMD ["--help"]
+# Expose a default command for the CLI
+ENTRYPOINT ["./index.js"]

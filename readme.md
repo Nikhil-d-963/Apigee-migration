@@ -44,6 +44,11 @@ With this tool, you can migrate resources from **non-production** to **productio
   ```bash
   https://github.com/Nikhil-d-963/Apigee-migration.git
   ```
+ ### or
+ - Use Apigee Migration CLI with Docker
+ ``bash
+ docker pull nikhil3690/apigee-migration-cli:latest
+```
         
 ### Step 2
 
