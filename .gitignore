@@ -10,6 +10,9 @@ dist/
 build/
 
 
+__tests__/
+
+
 
 # Dependency directories
 jspm_packages/
