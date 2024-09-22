@@ -37,15 +37,16 @@ With this tool, you can migrate resources from **non-production** to **productio
   ```bash
   npm i apigee-migration-cli
   ```
-  ### Or
+  ### OR
 
 - Install Apigee Migration CLI with Github
 
   ```bash
   https://github.com/Nikhil-d-963/Apigee-migration.git
   ```
- ### or
- - Use Apigee Migration CLI with Docker
+ ###  OR
+- Use Apigee Migration CLI with Docker
+
  ```bash
  docker pull nikhil3690/apigee-migration-cli:latest
  ```
@@ -61,7 +62,8 @@ With this tool, you can migrate resources from **non-production** to **productio
       "All": {
         "Proxy": false,
         "Sharedflow": false,
-        "TargetServers": true
+        "TargetServers": true,
+        "ApiProducts":true
       },
       "Specific": {
         "proxy": [

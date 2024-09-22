@@ -12,6 +12,9 @@ const fromTargetServerAll = require('./apigee-resource/target-server/from-target
 const deployProxyAll = require('./apigee-resource/proxy/deploy-proxy-all');
 const deploySharedflowAll = require('./apigee-resource/sharedflow/deploy-sharedflow-all');
 const createTargetServerAll = require('./apigee-resource/target-server/create-targetserver-all');
+const fromApiProductAll = require('./apigee-resource/product/from-product-all');
+const createApiProductAll = require('./apigee-resource/product/create-product-all');
+
 
 let fromAuthToken;
 let toAuthToken;
@@ -89,6 +92,12 @@ program
       console.log('Migrating Proxies...');
       await fromProxyAll(config, fromAuthToken);
     }
+
+    if (resources.ApiProducts === true) {
+      console.log('Migrating API Products...');
+      await fromApiProductAll(config, fromAuthToken);
+    }
+    
     
 
 
@@ -114,6 +123,12 @@ program
       await deployProxyAll(config, toAuthToken, onlyImport);
     }
 
+    if (resources.ApiProducts === true) {
+      console.log('Migrating API Products...');
+      await createApiProductAll(config, fromAuthToken);
+    }
+
+    
     console.log('Migration process completed.');
     const fromOrgResourcesDir = path.join(__dirname, 'apigee-resource', 'fromOrgResources');
     deleteDirectory(fromOrgResourcesDir);
