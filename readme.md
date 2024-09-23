@@ -6,10 +6,10 @@ With this tool, you can migrate resources from **non-production** to **productio
 
 
 
-## Features (v1.0.1)  🎯
+## Features (v1.5)  🎯
 
 - #### Migrate Resources:
-   Seamlessly migrate Proxies, Sharedflows, and Target Servers. 📦🔁
+   Seamlessly migrate Proxies, Sharedflows, API Products and Target Servers. 📦🔁
 - #### Migration without Deployment:
   Transfer resources to the destination organization without deploying them immediately 🛑➡️🏁
 
@@ -187,7 +187,7 @@ You can monitor the migration or deployment status directly in the terminal. The
 ## Upcoming Features In v2.0
 
 - Specific Proxy, Sharedflow, Target Server Migration
-- App, Product, FlowHooks Migration
+- App, FlowHooks Migration
 - Support for deployment to 2 or more Destination Orgs/Environments
 ## Creater
 

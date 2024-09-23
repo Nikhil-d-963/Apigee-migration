@@ -1,6 +1,6 @@
 {
   "name": "apigee-migration-cli",
-  "version": "1.5.1",
+  "version": "1.5.3",
   "main": "index.js",
   "bin": {
     "apigee-migration": "./index.js"
@@ -9,8 +9,8 @@
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "test coverage": "jest --coverage"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["APIGEE X", "apigee x", "Apigee Hybrid", "Apigee Edge", "apigee migration", "apigee", "node.js", "resource migration", "migration", "apigee proxy", "target server", "utility", "apigee tools", "apigee utility", "apigee extended"],
+  "author": "Nikhil D",
   "license": "ISC",
   "description": "",
   "dependencies": {
