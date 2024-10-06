@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const cliProgress = require('cli-progress'); // Import cli-progress
+const { SingleBar } = require('cli-progress'); // Importing SingleBar directly
 let chalk;
+
 (async () => {
   chalk = (await import('chalk')).default;
 })();
@@ -15,18 +16,17 @@ const createTargetServer = async (targetServerDetails, authToken, orgName, envNa
     const response = await axios.post(url, targetServerDetails, {
       headers: {
         Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
 
-    console.log(chalk.green(`Target server '${targetServerDetails.name}' created successfully.`));
+    console.log(chalk.green(` $ Target server '${targetServerDetails.name}' created successfully. \n`));
     return response.data;
   } catch (error) {
-    if (error.response) {
-      console.error(chalk.red(`Error creating target server '${targetServerDetails.name}':`), error.response.data);
-    } else {
-      console.error(chalk.red(`Error creating target server '${targetServerDetails.name}':`), error.message);
-    }
+    const errorMessage = error.response
+      ? `Error creating target server '${targetServerDetails.name}': ${JSON.stringify(error.response.data)}`
+      : `Error creating target server '${targetServerDetails.name}': ${error.message}`;
+    console.error(chalk.red(errorMessage));
     throw error;
   }
 };
@@ -37,68 +37,49 @@ const loadTargetServerDetails = (targetServerName) => {
   const filePath = path.join(targetServerDir, `${targetServerName}.json`);
 
   if (fs.existsSync(filePath)) {
-    const fileData = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(fileData); // Return target server details as JSON
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')); // Return target server details as JSON
   } else {
-    console.error(chalk.red(`Target server details for '${targetServerName}' not found.`));
+    console.error(chalk.red(`**Target server details for '${targetServerName}' not found. \n`));
     return null;
   }
 };
 
 // Main function to handle target server creation for all
 const createTargetServerAll = async (config, authToken) => {
-  let progressBar;
-  try {
-    const orgName = config.Organization.To['org-name']; // Get destination organization name from config
-    const envName = config.Organization.To['environment']; // Get destination environment from config
+  const orgName = config.Organization.To['org-name'];
+  const envName = config.Organization.To['environment'];
 
-    const targetServerDir = path.join(__dirname, '..', 'fromOrgResources', 'TargetServer');
-    const files = fs.readdirSync(targetServerDir);
+  const targetServerDir = path.join(__dirname, '..', 'fromOrgResources', 'TargetServer');
+  const files = fs.readdirSync(targetServerDir).filter(file => file.endsWith('.json'));
 
-    // Initialize progress bar
-    const totalFiles = files.filter(file => file.endsWith('.json')).length;
-    progressBar = new cliProgress.SingleBar({
-      format: 'Creating [{bar}] {percentage}% | {value}/{total} Target Servers',
-      barCompleteChar: '=',
-      barIncompleteChar: ' ',
-      hideCursor: true
-    }, cliProgress.Presets.shades_classic);
+  const progressBar = new SingleBar({
+    format: `--> Creating [{bar}] {percentage}% | {value}/{total} Target Servers \n`,
+    barCompleteChar: '\u2588',
+    barIncompleteChar: '\u2591',
+    hideCursor: true,
+    stopOnComplete: true,
+    // Set the bar's colors
+    format: `${chalk.green('--> Creating')} |{bar}| {percentage}% | {value}/{total} Target Servers \n`
+  });
 
-    progressBar.start(totalFiles, 0);
+  progressBar.start(files.length, 0);
 
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const targetServerName = path.basename(file, '.json');
-
-        try {
-          // Load target server details from the local file
-          const targetServerDetails = loadTargetServerDetails(targetServerName);
-
-          if (targetServerDetails) {
-            // Create the target server in the destination environment
-            await createTargetServer(targetServerDetails, authToken, orgName, envName);
-          }
-        } catch (error) {
-          // Stop the progress bar before printing the error
-          if (progressBar) progressBar.stop();
-          console.error(chalk.red(`Skipping target server '${targetServerName}' due to error: ${error.message}`));
-          continue; // Skip to the next target server if any error occurs
-        }
-
-        // Update progress bar
-        progressBar.increment();
+  for (const file of files) {
+    const targetServerName = path.basename(file, '.json');
+    try {
+      const targetServerDetails = loadTargetServerDetails(targetServerName);
+      if (targetServerDetails) {
+        await createTargetServer(targetServerDetails, authToken, orgName, envName);
       }
+    } catch (error) {
+      console.error(chalk.bold.red(`** Skipping target server '${targetServerName}' due to error: ${error.message} \n`));
+    } finally {
+      progressBar.increment();
     }
-
-    // Ensure progress bar stops
-    if (progressBar) progressBar.stop();
-    console.log(chalk.green('Target server creation process completed.'));
-  } catch (error) {
-    // Ensure progress bar stops on any top-level error
-    if (progressBar) progressBar.stop();
-    console.error(chalk.red('Target server creation failed:'), error.message);
-    process.exit(1); // Exit the process with an error code
   }
+
+  progressBar.stop();
+  console.log(chalk.bold.green(`== Target server creation process completed. == \n`));
 };
 
 module.exports = createTargetServerAll;
