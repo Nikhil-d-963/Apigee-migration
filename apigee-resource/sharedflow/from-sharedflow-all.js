@@ -1,106 +1,112 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const inquirer = require('inquirer'); // Import inquirer
-const ProgressBar = require('progress'); // Progress bar library
+const { SingleBar } = require('cli-progress');
+
 let chalk;
 (async () => {
   chalk = (await import('chalk')).default;
 })();
-// Function to ensure directory exists
+
+// Ensure directory exists
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 };
 
-// Function to fetch sharedflows
+// Centralized error logging
+const logError = (message) => {
+  console.error(chalk.red(message));
+};
+
+// Fetch shared flows
 const fetchSharedflows = async (authToken, orgName) => {
   try {
     const response = await axios.get(`https://apigee.googleapis.com/v1/organizations/${orgName}/sharedflows`, {
       headers: {
         Authorization: `Bearer ${authToken}`,
-      }
+      },
     });
-    const sharedflows = response.data.sharedFlows.map(sharedflow => sharedflow.name);
-    return sharedflows;
+    return response.data.sharedFlows.map(sharedflow => sharedflow.name);
   } catch (error) {
-    console.error(chalk.red('Error fetching sharedflows:'), error.message);
+    logError('Error fetching shared flows: ' + error.message);
     throw error;
   }
 };
 
-// Function to fetch revisions for a sharedflow
+// Fetch revisions for a shared flow
 const fetchRevisions = async (sharedflowName, authToken, orgName) => {
   try {
     const response = await axios.get(`https://apigee.googleapis.com/v1/organizations/${orgName}/sharedflows/${sharedflowName}/revisions`, {
       headers: {
         Authorization: `Bearer ${authToken}`,
-      }
+      },
     });
     return response.data;
   } catch (error) {
-    console.error(chalk.red(`Error fetching revisions for sharedflow ${sharedflowName}:`), error.message);
+    logError(`Error fetching revisions for shared flow ${sharedflowName}: ` + error.message);
     throw error;
   }
 };
 
-// Function to download a sharedflow bundle
+// Download a shared flow bundle
 const downloadSharedflowBundle = async (sharedflowName, revision, authToken, orgName) => {
   const bundleUrl = `https://apigee.googleapis.com/v1/organizations/${orgName}/sharedflows/${sharedflowName}/revisions/${revision}?format=bundle`;
-  try {
-    // Define the directory path where the sharedflow bundles will be saved
-    const sharedflowDir = path.join(__dirname, '..', 'fromOrgResources', 'sharedflows');
-    
-    // Ensure the directory exists before downloading
-    ensureDirectoryExists(sharedflowDir);
+  
+  const sharedflowDir = path.join(__dirname, '..', 'fromOrgResources', 'sharedflows');
+  ensureDirectoryExists(sharedflowDir);
 
+  try {
     const response = await axios.get(bundleUrl, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
-      responseType: 'stream', // Set response type to stream for downloading files
+      responseType: 'stream',
     });
 
     const outputPath = path.join(sharedflowDir, `${sharedflowName}.zip`);
-    
-    // Get the total content length to use in progress bar
-    const totalLength = response.headers['content-length'];
+    const totalLength = parseInt(response.headers['content-length'], 10);
 
-    // Create a progress bar
-    const progressBar = new ProgressBar(`Downloading ${sharedflowName} [:bar] :percent :etas`, {
-      width: 40,
-      complete: '=',
-      incomplete: ' ',
-      renderThrottle: 100,
-      total: parseInt(totalLength)
+    const progressBar = new SingleBar({
+      format: `${chalk.green('Downloading')} |{bar}| {percentage}% | {value}/{total} bytes | ETA: {eta}s`,
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      hideCursor: true,
+    });
+    
+    progressBar.start(totalLength, 0);
+
+    // Stream the download and update the progress bar
+    response.data.on('data', (chunk) => {
+      progressBar.increment(chunk.length);
     });
 
-    // Stream the download and update progress bar
-    response.data.on('data', (chunk) => progressBar.tick(chunk.length));
     response.data.pipe(fs.createWriteStream(outputPath));
 
     return new Promise((resolve, reject) => {
       response.data.on('end', () => {
+        progressBar.stop();
         console.log(chalk.green(`Downloaded ${sharedflowName} revision ${revision} to ${outputPath}`));
         resolve();
       });
 
       response.data.on('error', (error) => {
-        console.error(chalk.red(`Error downloading bundle for sharedflow ${sharedflowName} revision ${revision}:`), error.message);
+        logError(`Error downloading bundle for shared flow ${sharedflowName} revision ${revision}: ` + error.message);
         reject(error);
       });
     });
   } catch (error) {
-    console.error(chalk.red(`Error downloading bundle for sharedflow ${sharedflowName} revision ${revision}:`), error.message);
+    logError(`Error downloading bundle for shared flow ${sharedflowName} revision ${revision}: ` + error.message);
     throw error;
   }
 };
 
-// Main function to handle 'all' migration for sharedflows
+// Main function to handle 'all' migration for shared flows
 const fromSharedflowAll = async (config, authToken) => {
+  const orgName = config.Organization.From['org-name'];
+
   try {
-    const orgName = config.Organization.From['org-name']; // Get organization name from config
     const sharedflows = await fetchSharedflows(authToken, orgName);
 
     for (const sharedflow of sharedflows) {
@@ -109,7 +115,7 @@ const fromSharedflowAll = async (config, authToken) => {
       await downloadSharedflowBundle(sharedflow, latestRevision, authToken, orgName);
     }
   } catch (error) {
-    console.error(chalk.red('Migration failed:'), error.message);
+    logError('Migration failed: ' + error.message);
     process.exit(1);
   }
 };

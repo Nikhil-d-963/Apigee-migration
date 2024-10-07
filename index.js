@@ -5,7 +5,12 @@ const path = require('path');
 const { Command } = require('commander');
 const program = new Command();
 const inquirer = require('inquirer');
-const { loadConfigFromFile, performAllMigration, performSpecificMigration } = require('./config-handle/config-handle');
+const chalk = require('chalk');
+const {
+  loadConfigFromFile,
+  performAllMigration,
+  performSpecificMigration
+} = require('./config-handle/config-handle');
 const fromProxyAll = require('./apigee-resource/proxy/from-proxy-all');
 const fromSharedflowAll = require('./apigee-resource/sharedflow/from-sharedflow-all');
 const fromTargetServerAll = require('./apigee-resource/target-server/from-targetserver-all');
@@ -15,10 +20,8 @@ const createTargetServerAll = require('./apigee-resource/target-server/create-ta
 const fromApiProductAll = require('./apigee-resource/product/from-product-all');
 const createApiProductAll = require('./apigee-resource/product/create-product-all');
 
-
 let fromAuthToken;
 let toAuthToken;
-
 
 const deleteDirectory = (dirPath) => {
   if (fs.existsSync(dirPath)) {
@@ -34,20 +37,19 @@ const deleteDirectory = (dirPath) => {
   }
 };
 
-
 const getAuthToken = async (message) => {
   try {
     const answers = await inquirer.prompt([
       {
         type: 'input',
         name: 'authToken',
-        message: message,
+        message,
         validate: input => input ? true : 'Auth token cannot be empty',
       }
     ]);
     return answers.authToken;
   } catch (error) {
-    console.error('Error while prompting for auth token:', error.message);
+    console.error(chalk.red('Error while prompting for auth token:'), error.message);
     throw error;
   }
 };
@@ -64,75 +66,66 @@ program
   .action(async (cmd) => {
     const configPath = path.resolve(cmd.config);
     const config = await loadConfigFromFile(configPath);
-    console.log('Loaded configuration:', config);
+    console.log(chalk.blue('Loaded configuration:'), config);
 
-    // Perform general migrations defined in the config
     performAllMigration(config);
 
-    // Get From Org auth token and handle import process
-    fromAuthToken = await getAuthToken('Please enter From Org Google Cloud auth token:');
+    fromAuthToken = await getAuthToken(chalk.yellow('Please enter From Org Google Cloud auth token:'));
 
-    // Execute migrations based on config's "All" section
+    console.log(chalk.bold.green('===*** Apigee Migration Started ***==='));
+
     const resources = config['Apigee-resource']?.All || {};
+    const resourcesName = config.Organization.From['org-name'] || 'Unknown Organization';
+    const resourcesNameTo = config.Organization.To['org-name'] || 'Unknown Organization';
 
-
-    if (resources.TargetServers === true) {
-      console.log('Migrating Target Servers...');
+    // Migration process for different resources
+    if (resources.TargetServers) {
+      console.log(chalk.bold.blue(`Downloading Target Servers from ${resourcesName}...`));
       await fromTargetServerAll(config, fromAuthToken);
     }
 
-    if (resources.Sharedflow === true) {
-      console.log('Migrating Sharedflows...');
+    if (resources.Sharedflow) {
+      console.log(chalk.green(`Downloading SharedFlows From ${resourcesName}..`));
       await fromSharedflowAll(config, fromAuthToken);
     }
 
-    
-    // Only execute the function if the value in config is explicitly true
-    if (resources.Proxy === true) {
-      console.log('Migrating Proxies...');
+    if (resources.Proxy) {
+      console.log(chalk.green(`Downloading Proxies from ${resourcesName} ...`));
       await fromProxyAll(config, fromAuthToken);
     }
 
-    if (resources.ApiProducts === true) {
-      console.log('Migrating API Products...');
+    if (resources.ApiProducts) {
+      console.log(chalk.green(`Downloading API Products from ${resourcesName} ...`));
       await fromApiProductAll(config, fromAuthToken);
     }
-    
-    
 
+    toAuthToken = await getAuthToken(chalk.yellow('Please enter Destination Org Google Cloud auth token:'));
 
-
-    // Get Destination Org auth token for deployment
-    toAuthToken = await getAuthToken('Please enter Destination Org Google Cloud auth token:');
-
-    // Determine if the command is to only import or to both import and deploy
     const onlyImport = !!cmd.onlyimport;
 
-    if (resources.TargetServers === true) {
-      console.log('Creating Target Servers in destination...');
+    if (resources.TargetServers) {
+      console.log(chalk.green(`Migrating Target Servers to ${resourcesNameTo}...`));
       await createTargetServerAll(config, toAuthToken);
     }
-    
-    if (resources.Sharedflow === true ) {
-      console.log('Deploying Sharedflows...');
+
+    if (resources.Sharedflow) {
+      console.log(chalk.green(`Migrating SharedFlows to ${resourcesNameTo}...`));
       await deploySharedflowAll(config, toAuthToken, onlyImport);
     }
 
-    if (resources.Proxy === true) {
-      console.log('Deploying Proxies...');
+    if (resources.Proxy) {
+      console.log(chalk.green(`Migrating Proxies to ${resourcesNameTo}...`));
       await deployProxyAll(config, toAuthToken, onlyImport);
     }
 
-    if (resources.ApiProducts === true) {
-      console.log('Migrating API Products...');
+    if (resources.ApiProducts) {
+      console.log(chalk.green(`Migrating API Products to  ${resourcesNameTo}...`));
       await createApiProductAll(config, fromAuthToken);
     }
 
-    
-    console.log('Migration process completed.');
+    console.log(chalk.bold.green('++++++++++++ Migration process completed.+++++++++++++'));
     const fromOrgResourcesDir = path.join(__dirname, 'apigee-resource', 'fromOrgResources');
     deleteDirectory(fromOrgResourcesDir);
-
   });
 
 // Command for migrating specific resources
@@ -143,7 +136,7 @@ program
   .action(async (cmd) => {
     const configPath = path.resolve(cmd.config);
     const config = await loadConfigFromFile(configPath);
-    console.log('Loaded configuration:', config);
+    console.log(chalk.blue('Loaded configuration:'), config);
     performSpecificMigration(config);
   });
 
