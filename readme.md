@@ -56,71 +56,45 @@ With this tool, you can migrate resources from **non-production** to **productio
 ### Create a configuration file (config.json) based on your requirements  📝
  - Example Config File:
 
-  ```json
-  {
-    "Apigee-resource": {
-      "All": {
-        "Proxy": false,
-        "Sharedflow": false,
-        "TargetServers": true,
-        "ApiProducts":true
-      },
-      "Specific": {
-        "proxy": [
-          {
-            "name": "proxy01/latest",
-            "Rev": "01/latest"
-          },
-          {
-            "name": "proxy02",
-            "Rev": "01/latest"
-          }
-        ],
-        "sharedflow": [
-          {
-            "name": "sharedflow1",
-            "Rev": "01/latest"
-          },
-          {
-            "name": "sharedflow2",
-            "Rev": "01/latest"
-          }
-        ],
-        "targetServer": [
-          {
-            "name": "target1"
-          },
-          {
-            "name": "target2"
-          }
-        ]
-      }
+  ```sh
+ {
+  "Apigee-resource": {
+    "All": {
+      "Proxy": false,
+      "Sharedflow": false,
+      "TargetServers": true,
+      "ApiProducts": true
+    }
+  },
+  "Organization": {
+    "From": {
+      "org-name": "niv-apigee-From",
+      "environment": "eval"
     },
-    "Organization":{
-      "From":{
-        "org-name":"niv-apigee-From",
-        "environment":"eval"
-      },
-            "To":{
-        "org-name":"niv-apigee-To",
-        "environment":"eval"
-      }
+    "To": {
+      "org-name": "niv-apigee-To",
+      "environment": "eval"
     }
   }
+}
   ```
 
 ## Run CLI Tool  🚀
 
 
+
 ### Step 3
-To Migrate All Resources (Proxy, Sharedflow, Target Server) and Deploy to the Destination Organization / Same organization Environment
-  ```bash
+- If you are cloning from GitHub, you should run the following command in the command lined
+  ```sh
+  npm link
+  ```
+- To Migrate All Resources (Proxy, Sharedflow, Target Server) and Deploy to the Destination Organization / Same organization Environment
+  ```sh
   apigee-migration all --config ./config.json
   ```
-#### Or
 
-To Migrate All Resources without Deploying to the Destination Organization / Same organization Environment:
-  ```bash
+- To Migrate All Resources without Deploying to the Destination Organization / Same organization Environment:
+  ```sh
   apigee-migration all --onlyimport --config ./config.json
   ```
 

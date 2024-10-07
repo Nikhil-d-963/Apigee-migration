@@ -76,6 +76,7 @@ program
 
     const resources = config['Apigee-resource']?.All || {};
     const resourcesName = config.Organization.From['org-name'] || 'Unknown Organization';
+    const resourcesNameTo = config.Organization.To['org-name'] || 'Unknown Organization';
 
     // Migration process for different resources
     if (resources.TargetServers) {
@@ -84,17 +85,17 @@ program
     }
 
     if (resources.Sharedflow) {
-      console.log(chalk.green('Migrating Sharedflows...'));
+      console.log(chalk.green(`Downloading SharedFlows From ${resourcesName}..`));
       await fromSharedflowAll(config, fromAuthToken);
     }
 
     if (resources.Proxy) {
-      console.log(chalk.green('Migrating Proxies...'));
+      console.log(chalk.green(`Downloading Proxies from ${resourcesName} ...`));
       await fromProxyAll(config, fromAuthToken);
     }
 
     if (resources.ApiProducts) {
-      console.log(chalk.green('Migrating API Products...'));
+      console.log(chalk.green(`Downloading API Products from ${resourcesName} ...`));
       await fromApiProductAll(config, fromAuthToken);
     }
 
@@ -103,26 +104,26 @@ program
     const onlyImport = !!cmd.onlyimport;
 
     if (resources.TargetServers) {
-      console.log(chalk.green(`Migrating Target Servers to ${resourcesName}...`));
+      console.log(chalk.green(`Migrating Target Servers to ${resourcesNameTo}...`));
       await createTargetServerAll(config, toAuthToken);
     }
 
     if (resources.Sharedflow) {
-      console.log(chalk.green('Deploying Sharedflows...'));
+      console.log(chalk.green(`Migrating SharedFlows to ${resourcesNameTo}...`));
       await deploySharedflowAll(config, toAuthToken, onlyImport);
     }
 
     if (resources.Proxy) {
-      console.log(chalk.green('Deploying Proxies...'));
+      console.log(chalk.green(`Migrating Proxies to ${resourcesNameTo}...`));
       await deployProxyAll(config, toAuthToken, onlyImport);
     }
 
     if (resources.ApiProducts) {
-      console.log(chalk.green('Migrating API Products...'));
+      console.log(chalk.green(`Migrating API Products to  ${resourcesNameTo}...`));
       await createApiProductAll(config, fromAuthToken);
     }
 
-    console.log(chalk.green('Migration process completed.'));
+    console.log(chalk.bold.green('++++++++++++ Migration process completed.+++++++++++++'));
     const fromOrgResourcesDir = path.join(__dirname, 'apigee-resource', 'fromOrgResources');
     deleteDirectory(fromOrgResourcesDir);
   });

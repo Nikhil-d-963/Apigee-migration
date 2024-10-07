@@ -1,0 +1,49 @@
+name: Deploy to NPM
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16' # specify your Node.js version
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build # replace with your build command if necessary
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # - name: Log in to Docker Hub
+      #   run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      # - name: Build Docker image
+      #   run: |
+      #     docker build -t your-docker-image-name:latest . # Replace with your image name
+
+      # - name: Push Docker image
+      #   run: |
+      #     docker push your-docker-image-name:latest # Replace with your image name
+
+      # - name: Push to GitLab
+      #   env:
+      #     GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      #   run: |
+      #     git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/your-username/your-repo.git # Update with your GitLab repo
+      #     git push gitlab master
