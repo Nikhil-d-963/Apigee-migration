@@ -3,7 +3,7 @@
   "version": "1.5.5",
   "main": "index.js",
   "bin": {
-    "apigee-migration": "./index.js"
+    "apigee-migration": "index.js"
   },
   "scripts": {
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage"
