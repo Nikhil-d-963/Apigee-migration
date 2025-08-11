@@ -40,8 +40,7 @@ Thumbs.db
 *.tmp
 *.swp
 
-# npm package-lock
-package-lock.json
+
 
 # Temporary files
 *.tmp
