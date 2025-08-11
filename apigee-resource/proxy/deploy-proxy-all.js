@@ -9,7 +9,7 @@ let chalk;
   chalk = (await import('chalk')).default;
 })();
 
-// Ensure directory exists
+// Ensure directory exist
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
