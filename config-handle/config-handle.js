@@ -16,22 +16,28 @@ const validateConfig = (config) => {
   
     // Validate the "Apigee-resource" section
     const resources = config['Apigee-resource'];
-    if (!resources.All || !resources.Specific) {
-      throw new Error('Invalid configuration: Missing "All" or "Specific" section in "Apigee-resource"');
+    if (!resources.All && !resources.Specific) {
+      throw new Error('Invalid configuration: Missing both "All" and "Specific" sections in "Apigee-resource". At least one must be present.');
     }
   
-    // Validate the "All" section
-    const allSection = resources.All;
-    const allKeysPresent = Object.keys(allSection);
-    if (!allKeys.every(key => allKeysPresent.includes(key))) {
-      throw new Error('Invalid configuration: Incorrect keys in "All" section');
+    // Validate the "All" section if present
+    if (resources.All) {
+      const allSection = resources.All;
+      const allKeysPresent = Object.keys(allSection);
+      // Check if at least one of the expected keys is present
+      if (!allKeys.some(key => allKeysPresent.includes(key))) {
+        throw new Error('Invalid configuration: No valid keys found in "All" section');
+      }
     }
-  
-    // Validate the "Specific" section
-    const specificSection = resources.Specific;
-    const specificKeysPresent = Object.keys(specificSection);
-    if (!specificKeys.every(key => specificKeysPresent.includes(key))) {
-      throw new Error('Invalid configuration: Incorrect keys in "Specific" section');
+
+    // Validate the "Specific" section if present
+    if (resources.Specific) {
+      const specificSection = resources.Specific;
+      const specificKeysPresent = Object.keys(specificSection);
+      // Check if at least one of the expected keys is present
+      if (!specificKeys.some(key => specificKeysPresent.includes(key))) {
+        throw new Error('Invalid configuration: No valid keys found in "Specific" section');
+      }
     }
   
     // Validate the "Organization" section

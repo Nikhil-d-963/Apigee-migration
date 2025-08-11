@@ -120,7 +120,7 @@ program
 
     if (resources.ApiProducts) {
       console.log(chalk.green(`Migrating API Products to  ${resourcesNameTo}...`));
-      await createApiProductAll(config, fromAuthToken);
+      await createApiProductAll(config, toAuthToken);
     }
 
     console.log(chalk.bold.green('++++++++++++ Migration process completed.+++++++++++++'));
@@ -131,7 +131,7 @@ program
 // Command for migrating specific resources
 program
   .command('specific')
-  .description('Migrate specific resources based on the "Specific" section of the config file')
+  .description('Migrate specific resources based on the "Specific" section` of the config file')
   .option('--config <path>', 'Path to the config file', 'config.json')
   .action(async (cmd) => {
     const configPath = path.resolve(cmd.config);

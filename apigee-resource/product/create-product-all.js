@@ -2,26 +2,40 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { SingleBar, Presets } = require('cli-progress'); // Use cli-progress for modern progress bar
-let chalk;
-
-(async () => {
-  chalk = (await import('chalk')).default;
-})();
+const chalk = require('chalk');
 
 // Function to create an API product
 const createApiProduct = async (apiProductDetails, authToken, orgName) => {
   const url = `https://apigee.googleapis.com/v1/organizations/${orgName}/apiproducts`;
 
   try {
-    const response = await axios.post(url, apiProductDetails, {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Check if product already exists to avoid duplicate creation errors
+    try {
+      const checkUrl = `${url}/${apiProductDetails.name}`;
+      await axios.get(checkUrl, {
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      });
+      console.log(chalk.yellow(`\n API Product '${apiProductDetails.name}' already exists. Skipping creation. \n`));
+      return { name: apiProductDetails.name, status: 'skipped' };
+    } catch (checkError) {
+      // Product doesn't exist, continue with creation
+      if (checkError.response && checkError.response.status === 404) {
+        const response = await axios.post(url, apiProductDetails, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    console.log(chalk.green(` \n API Product '${apiProductDetails.name}' created successfully. \n`));
-    return response.data;
+        console.log(chalk.green(`\n API Product '${apiProductDetails.name}' created successfully. \n`));
+        return response.data;
+      } else {
+        // Re-throw if it's not a 404 error
+        throw checkError;
+      }
+    }
   } catch (error) {
     let errorMessage;
 
@@ -56,8 +70,16 @@ const loadApiProductDetails = (apiProductName) => {
 const createApiProductAll = async (config, authToken) => {
   try {
     const orgName = config.Organization.To['org-name']; // Get destination organization name from config
+    console.log(chalk.blue(`Creating API Products in ${orgName}...`));
 
     const apiProductDir = path.join(__dirname, '..', 'fromOrgResources', 'APIProducts');
+    
+    // Check if directory exists
+    if (!fs.existsSync(apiProductDir)) {
+      console.log(chalk.yellow('API Products directory not found. No products to create.'));
+      return;
+    }
+    
     const files = fs.readdirSync(apiProductDir).filter(file => file.endsWith('.json'));
 
     if (files.length === 0) {
@@ -65,13 +87,19 @@ const createApiProductAll = async (config, authToken) => {
       return;
     }
 
+    console.log(chalk.green(`Found ${files.length} API Products to create.`));
+
     // Initialize progress bar
     const progressBar = new SingleBar({
-      format: '{bar} | {percentage}% || {value}/{total} API Products \n',
+      format: '{bar} | {percentage}% || {value}/{total} API Products',
       hideCursor: true,
     }, Presets.shades_classic);
     
     progressBar.start(files.length, 0);
+    
+    let successCount = 0;
+    let skippedCount = 0;
+    let failureCount = 0;
 
     for (const file of files) {
       const apiProductName = path.basename(file, '.json');
@@ -82,19 +110,37 @@ const createApiProductAll = async (config, authToken) => {
 
         if (apiProductDetails) {
           // Create the API product in the destination environment
-          await createApiProduct(apiProductDetails, authToken, orgName);
+          const result = await createApiProduct(apiProductDetails, authToken, orgName);
+          if (result.status === 'skipped') {
+            skippedCount++;
+          } else {
+            successCount++;
+          }
           progressBar.increment(); // Update progress bar
         }
       } catch (error) {
-        console.error(chalk.red(`\n Skipping API Product '${apiProductName}' due to error: ${error.message} \n`));
+        failureCount++;
+        console.error(chalk.red(`Skipping API Product '${apiProductName}' due to error: ${error.message}`));
+        progressBar.increment(); // Still increment the progress bar
       }
     }
 
     progressBar.stop();
-    console.log(chalk.green('\n API Product creation process completed.'));
+    
+    console.log(chalk.bold.green('\nAPI Product creation summary:'));
+    console.log(chalk.green(`- Successfully created: ${successCount}`));
+    if (skippedCount > 0) {
+      console.log(chalk.yellow(`- Skipped (already exists): ${skippedCount}`));
+    }
+    if (failureCount > 0) {
+      console.log(chalk.red(`- Failed to create: ${failureCount}`));
+    }
+    
+    console.log(chalk.green('\nAPI Product creation process completed.'));
   } catch (error) {
-    console.error(chalk.red('\n API Product creation failed:'), error.message);
-    process.exit(1); // Exit the process with an error code
+    console.error(chalk.red('\nAPI Product creation failed:'), error.message);
+    // Don't exit the process, just return with error
+    return { success: false, error: error.message };
   }
 };
 

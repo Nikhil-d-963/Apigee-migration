@@ -2,12 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { SingleBar } = require('cli-progress');
-
-// Dynamically import `chalk`
-let chalk;
-(async () => {
-  chalk = (await import('chalk')).default;
-})();
+const chalk = require('chalk');
 
 // Function to ensure the directory exists
 const ensureDirectoryExists = (dirPath) => {
@@ -47,6 +42,35 @@ const fetchProxies = async (authToken, orgName) => {
 const fetchRevisions = async (proxyName, authToken, orgName) => {
   const url = `https://apigee.googleapis.com/v1/organizations/${orgName}/apis/${proxyName}/revisions`;
   return await fetchData(url, authToken);
+};
+
+// Function to fetch deployed revisions for a proxy directly
+const fetchDeployedRevisions = async (proxyName, authToken, orgName, environment) => {
+  try {
+    // Get all deployments for the proxy directly
+    const deploymentUrl = `https://apigee.googleapis.com/v1/organizations/${orgName}/apis/${proxyName}/deployments`;
+    const deploymentData = await fetchData(deploymentUrl, authToken);
+    
+    const deployedRevisions = new Set();
+    
+    if (deploymentData && deploymentData.deployments && deploymentData.deployments.length > 0) {
+      // Filter deployments by environment if specified
+      const relevantDeployments = environment ? 
+        deploymentData.deployments.filter(deployment => deployment.environment === environment) : 
+        deploymentData.deployments;
+      
+      // Add all deployed revisions to the set
+      for (const deployment of relevantDeployments) {
+        deployedRevisions.add(deployment.revision);
+        console.log(chalk.blue(`Found deployed revision ${deployment.revision} for ${proxyName} in environment ${deployment.environment}`));
+      }
+    }
+    
+    return Array.from(deployedRevisions);
+  } catch (error) {
+    logError(`Error fetching deployed revisions for ${proxyName}: ${error.message}`);
+    return [];
+  }
 };
 
 // Function to download a proxy bundle
@@ -102,22 +126,61 @@ const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
 // Main function to handle 'all' migration
 const fromProxyAll = async (config, authToken) => {
   const orgName = config.Organization.From['org-name'];
+  const environment = config.Organization.From['environment'];
   
   try {
+    console.log(chalk.blue(`Fetching proxies from ${orgName}...`));
     const proxies = await fetchProxies(authToken, orgName);
+    console.log(chalk.green(`Found ${proxies.length} proxies.`));
+    
+    if (environment) {
+      console.log(chalk.blue(`Filtering for deployments in environment: ${environment}`));
+    } else {
+      console.log(chalk.blue(`Looking for deployments in all environments`));
+    }
+    
+    let downloadedCount = 0;
+    let skippedCount = 0;
     
     for (const proxy of proxies) {
       try {
-        const revisions = await fetchRevisions(proxy, authToken, orgName);
-        const latestRevision = Math.max(...revisions.map(Number));
-        await downloadProxyBundle(proxy, latestRevision, authToken, orgName);
+        // First try to get deployed revisions
+        const deployedRevisions = await fetchDeployedRevisions(proxy, authToken, orgName, environment);
+        
+        if (deployedRevisions.length > 0) {
+          // Download all deployed revisions
+          for (const revision of deployedRevisions) {
+            await downloadProxyBundle(proxy, revision, authToken, orgName);
+            downloadedCount++;
+          }
+        } else {
+          // If no deployed revisions found, fall back to latest revision
+          console.log(chalk.yellow(`No deployed revisions found for ${proxy}${environment ? ` in environment ${environment}` : ''}. Falling back to latest revision.`));
+          const revisions = await fetchRevisions(proxy, authToken, orgName);
+          
+          if (revisions.length > 0) {
+            const latestRevision = Math.max(...revisions.map(Number));
+            await downloadProxyBundle(proxy, latestRevision, authToken, orgName);
+            downloadedCount++;
+          } else {
+            console.log(chalk.yellow(`No revisions found for ${proxy}. Skipping.`));
+            skippedCount++;
+          }
+        }
       } catch (error) {
         logError(`Skipping ${proxy} due to an error: ${error.message}`);
+        skippedCount++;
       }
+    }
+    
+    console.log(chalk.bold.green(`\nProxy download summary:`));
+    console.log(chalk.green(`- Successfully downloaded: ${downloadedCount}`));
+    if (skippedCount > 0) {
+      console.log(chalk.yellow(`- Skipped: ${skippedCount}`));
     }
   } catch (error) {
     logError('Migration failed: ' + error.message);
-    process.exit(1);
+    return { success: false, error: error.message };
   }
 };
 
