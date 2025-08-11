@@ -5,7 +5,7 @@ const path = require('path');
 const { Command } = require('commander');
 const program = new Command();
 const inquirer = require('inquirer');
-const chalk = require('chalk');
+const logger = require('./utils/logger');
 const {
   loadConfigFromFile,
   performAllMigration,
@@ -49,13 +49,13 @@ const getAuthToken = async (message) => {
     ]);
     return answers.authToken;
   } catch (error) {
-    console.error(chalk.red('Error while prompting for auth token:'), error.message);
+    logger.error(`Error while prompting for auth token: ${error.message}`);
     throw error;
   }
 };
 
 // Main CLI program
-program.version('1.0.0').description('Apigee Migration CLI Tool');
+program.version('1.5.6').description('Apigee Migration CLI Tool');
 
 // Command for migrating all resources
 program
@@ -64,68 +64,92 @@ program
   .option('--config <path>', 'Path to the config file', 'config.json')
   .option('--onlyimport', 'Only import proxy bundles without deploying')
   .action(async (cmd) => {
+    // Display banner at start
+    logger.printBanner();
+    
     const configPath = path.resolve(cmd.config);
+    logger.info(`Loading configuration from ${configPath}...`);
     const config = await loadConfigFromFile(configPath);
-    console.log(chalk.blue('Loaded configuration:'), config);
+    logger.success('Configuration loaded successfully');
+    
+    // Display configuration in a more readable format
+    console.log('\nConfiguration:');
+    console.log(JSON.stringify(config, null, 2));
+    console.log('');
 
     performAllMigration(config);
 
-    fromAuthToken = await getAuthToken(chalk.yellow('Please enter From Org Google Cloud auth token:'));
+    fromAuthToken = await getAuthToken('Please enter From Org Google Cloud auth token:');
 
-    console.log(chalk.bold.green('===*** Apigee Migration Started ***==='));
+    logger.printSection('Apigee Migration Started');
 
     const resources = config['Apigee-resource']?.All || {};
     const resourcesName = config.Organization.From['org-name'] || 'Unknown Organization';
     const resourcesNameTo = config.Organization.To['org-name'] || 'Unknown Organization';
+    
+    logger.info(`Source organization: ${resourcesName}`);
+    logger.info(`Target organization: ${resourcesNameTo}`);
 
     // Migration process for different resources
+    logger.printSection('Resource Download Phase');
+    
     if (resources.TargetServers) {
-      console.log(chalk.bold.blue(`Downloading Target Servers from ${resourcesName}...`));
+      logger.info(`Downloading Target Servers from ${resourcesName}...`);
       await fromTargetServerAll(config, fromAuthToken);
     }
 
     if (resources.Sharedflow) {
-      console.log(chalk.green(`Downloading SharedFlows From ${resourcesName}..`));
+      logger.info(`Downloading SharedFlows From ${resourcesName}...`);
       await fromSharedflowAll(config, fromAuthToken);
     }
 
     if (resources.Proxy) {
-      console.log(chalk.green(`Downloading Proxies from ${resourcesName} ...`));
+      logger.info(`Downloading Proxies from ${resourcesName}...`);
       await fromProxyAll(config, fromAuthToken);
     }
 
     if (resources.ApiProducts) {
-      console.log(chalk.green(`Downloading API Products from ${resourcesName} ...`));
+      logger.info(`Downloading API Products from ${resourcesName}...`);
       await fromApiProductAll(config, fromAuthToken);
     }
 
-    toAuthToken = await getAuthToken(chalk.yellow('Please enter Destination Org Google Cloud auth token:'));
+    toAuthToken = await getAuthToken('Please enter Destination Org Google Cloud auth token:');
 
     const onlyImport = !!cmd.onlyimport;
+    if (onlyImport) {
+      logger.info('Running in import-only mode (no deployment)');
+    }
+    
+    logger.printSection('Resource Migration Phase');
 
     if (resources.TargetServers) {
-      console.log(chalk.green(`Migrating Target Servers to ${resourcesNameTo}...`));
+      logger.info(`Migrating Target Servers to ${resourcesNameTo}...`);
       await createTargetServerAll(config, toAuthToken);
     }
 
     if (resources.Sharedflow) {
-      console.log(chalk.green(`Migrating SharedFlows to ${resourcesNameTo}...`));
+      logger.info(`Migrating SharedFlows to ${resourcesNameTo}...`);
       await deploySharedflowAll(config, toAuthToken, onlyImport);
     }
 
     if (resources.Proxy) {
-      console.log(chalk.green(`Migrating Proxies to ${resourcesNameTo}...`));
+      logger.info(`Migrating Proxies to ${resourcesNameTo}...`);
       await deployProxyAll(config, toAuthToken, onlyImport);
     }
 
     if (resources.ApiProducts) {
-      console.log(chalk.green(`Migrating API Products to  ${resourcesNameTo}...`));
+      logger.info(`Migrating API Products to ${resourcesNameTo}...`);
       await createApiProductAll(config, toAuthToken);
     }
 
-    console.log(chalk.bold.green('++++++++++++ Migration process completed.+++++++++++++'));
+    logger.printSection('Cleanup');
     const fromOrgResourcesDir = path.join(__dirname, 'apigee-resource', 'fromOrgResources');
+    logger.info(`Cleaning up temporary files in ${fromOrgResourcesDir}...`);
     deleteDirectory(fromOrgResourcesDir);
+    logger.success('Cleanup completed');
+    
+    logger.printSection('Migration Complete');
+    logger.success('Apigee Migration process completed successfully');
   });
 
 // Command for migrating specific resources
@@ -134,10 +158,24 @@ program
   .description('Migrate specific resources based on the "Specific" section` of the config file')
   .option('--config <path>', 'Path to the config file', 'config.json')
   .action(async (cmd) => {
+    // Display banner at start
+    logger.printBanner();
+    
     const configPath = path.resolve(cmd.config);
+    logger.info(`Loading configuration from ${configPath}...`);
     const config = await loadConfigFromFile(configPath);
-    console.log(chalk.blue('Loaded configuration:'), config);
+    logger.success('Configuration loaded successfully');
+    
+    // Display configuration in a more readable format
+    console.log('\nConfiguration:');
+    console.log(JSON.stringify(config, null, 2));
+    console.log('');
+    
+    logger.printSection('Specific Resource Migration');
     performSpecificMigration(config);
+    
+    logger.printSection('Migration Complete');
+    logger.success('Specific resource migration completed successfully');
   });
 
 // Parse command-line arguments

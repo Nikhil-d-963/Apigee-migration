@@ -1,8 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { SingleBar } = require('cli-progress');
-const chalk = require('chalk');
+const logger = require('../../utils/logger');
 
 // Function to ensure the directory exists
 const ensureDirectoryExists = (dirPath) => {
@@ -11,9 +10,9 @@ const ensureDirectoryExists = (dirPath) => {
   }
 };
 
-// Centralized error logging
+// Use standardized logger for error logging
 const logError = (message) => {
-  console.error(chalk.red(message));
+  logger.error(message);
 };
 
 // Function to fetch data with error handling
@@ -62,7 +61,7 @@ const fetchDeployedRevisions = async (proxyName, authToken, orgName, environment
       // Add all deployed revisions to the set
       for (const deployment of relevantDeployments) {
         deployedRevisions.add(deployment.revision);
-        console.log(chalk.blue(`Found deployed revision ${deployment.revision} for ${proxyName} in environment ${deployment.environment}`));
+        logger.info(`Found deployed revision ${deployment.revision} for ${proxyName} in environment ${deployment.environment}`);
       }
     }
     
@@ -91,11 +90,10 @@ const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
     const outputPath = path.join(proxyDir, `${proxyName}.zip`);
     const totalSize = parseInt(response.headers['content-length'], 10);
     
-    const progressBar = new SingleBar({
-      format: `${chalk.green('{bar}')} {percentage}% | {eta}s | ${chalk.cyan(proxyName)}`,
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-      hideCursor: true,
+    // Use standardized progress bar
+    const progressBar = logger.createProgressBar(`Downloading ${proxyName} (revision ${revision})`, {
+      stopOnComplete: true,
+      clearOnComplete: true
     });
 
     progressBar.start(totalSize, 0);
@@ -109,7 +107,7 @@ const downloadProxyBundle = async (proxyName, revision, authToken, orgName) => {
     return new Promise((resolve, reject) => {
       response.data.on('end', () => {
         progressBar.stop();
-        console.log(chalk.green(`Downloaded ${proxyName} revision ${revision} to ${outputPath}`));
+        logger.success(`Downloaded ${proxyName} revision ${revision} to ${outputPath}`);
         resolve();
       });
       response.data.on('error', (error) => {
@@ -129,14 +127,17 @@ const fromProxyAll = async (config, authToken) => {
   const environment = config.Organization.From['environment'];
   
   try {
-    console.log(chalk.blue(`Fetching proxies from ${orgName}...`));
+    // Print section header
+    logger.printSection('Proxy Migration');
+    
+    logger.info(`Fetching proxies from ${orgName}...`);
     const proxies = await fetchProxies(authToken, orgName);
-    console.log(chalk.green(`Found ${proxies.length} proxies.`));
+    logger.success(`Found ${proxies.length} proxies.`);
     
     if (environment) {
-      console.log(chalk.blue(`Filtering for deployments in environment: ${environment}`));
+      logger.info(`Filtering for deployments in environment: ${environment}`);
     } else {
-      console.log(chalk.blue(`Looking for deployments in all environments`));
+      logger.info(`Looking for deployments in all environments`);
     }
     
     let downloadedCount = 0;
@@ -155,7 +156,7 @@ const fromProxyAll = async (config, authToken) => {
           }
         } else {
           // If no deployed revisions found, fall back to latest revision
-          console.log(chalk.yellow(`No deployed revisions found for ${proxy}${environment ? ` in environment ${environment}` : ''}. Falling back to latest revision.`));
+          logger.warning(`No deployed revisions found for ${proxy}${environment ? ` in environment ${environment}` : ''}. Falling back to latest revision.`);
           const revisions = await fetchRevisions(proxy, authToken, orgName);
           
           if (revisions.length > 0) {
@@ -163,7 +164,7 @@ const fromProxyAll = async (config, authToken) => {
             await downloadProxyBundle(proxy, latestRevision, authToken, orgName);
             downloadedCount++;
           } else {
-            console.log(chalk.yellow(`No revisions found for ${proxy}. Skipping.`));
+            logger.warning(`No revisions found for ${proxy}. Skipping.`);
             skippedCount++;
           }
         }
@@ -173,11 +174,14 @@ const fromProxyAll = async (config, authToken) => {
       }
     }
     
-    console.log(chalk.bold.green(`\nProxy download summary:`));
-    console.log(chalk.green(`- Successfully downloaded: ${downloadedCount}`));
-    if (skippedCount > 0) {
-      console.log(chalk.yellow(`- Skipped: ${skippedCount}`));
-    }
+    // Print summary using the standardized summary format
+    logger.printSummary({
+      'Successfully Downloaded': downloadedCount,
+      'Skipped': skippedCount,
+      'Total Proxies': proxies.length
+    }, 'Proxy Download Summary');
+    
+    return { success: true, downloaded: downloadedCount, skipped: skippedCount };
   } catch (error) {
     logError('Migration failed: ' + error.message);
     return { success: false, error: error.message };
